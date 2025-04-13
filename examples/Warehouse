@@ -1,0 +1,76 @@
+import { useState } from "react"; import { Card, CardContent } from "@/components/ui/card"; import { Button } from "@/components/ui/button"; import { Input } from "@/components/ui/input"; import { Label } from "@/components/ui/label"; import QRCode from "react-qr-code"; import { useRef } from "react";
+
+const initialUsers = [ { username: "admin", password: "admin", role: "manager" }, { username: "worker1", password: "1234", role: "worker" } ];
+
+export default function InventoryApp() { const [inventory, setInventory] = useState([]); const [log, setLog] = useState([]); const [form, setForm] = useState({ name: "", quantity: "", type: "in", image: null, qrCode: "" }); const [user, setUser] = useState(""); const [password, setPassword] = useState(""); const [role, setRole] = useState(""); const [users, setUsers] = useState(initialUsers); const [loggedIn, setLoggedIn] = useState(false); const [newUser, setNewUser] = useState({ username: "", password: "", role: "worker" }); const [passwordUpdate, setPasswordUpdate] = useState(""); const fileInputRef = useRef();
+
+const handleLogin = () => { const foundUser = users.find(u => u.username === user && u.password === password); if (foundUser) { setRole(foundUser.role); setLoggedIn(true); } };
+
+const handleRegister = () => { if (newUser.username && newUser.password && !users.find(u => u.username === newUser.username)) { setUsers([...users, newUser]); setNewUser({ username: "", password: "", role: "worker" }); } };
+
+const handleDeleteUser = (username) => { if (confirm(هل أنت متأكد من حذف المستخدم ${username}؟)) { setUsers(users.filter(u => u.username !== username)); } };
+
+const handleChangePassword = () => { setUsers(users.map(u => u.username === user ? { ...u, password: passwordUpdate } : u )); setPasswordUpdate(""); };
+
+const handleSubmit = () => { const qty = parseInt(form.quantity); const updatedInventory = [...inventory]; const index = updatedInventory.findIndex(item => item.name === form.name); if (index > -1) { updatedInventory[index].quantity += form.type === "in" ? qty : -qty; } else { updatedInventory.push({ name: form.name, quantity: qty, image: form.image, qrCode: form.qrCode }); } setInventory(updatedInventory); setLog([ ...log, { ...form, person: user, quantity: qty, date: new Date().toLocaleString() } ]); setForm({ name: "", quantity: "", type: "in", image: null, qrCode: "" }); };
+
+const handleFileChange = (e) => { const file = e.target.files[0]; if (file) { setForm({ ...form, image: URL.createObjectURL(file) }); } };
+
+const handleScanBarcode = () => { const scanner = new BarcodeScanner(); scanner.scan().then(result => { const scannedItem = inventory.find(item => item.qrCode === result.text); if (scannedItem) { alert(تم العثور على الصنف: ${scannedItem.name}); } else { alert("الصنف غير موجود في المخزون."); } }).catch(err => { console.error(err); alert("حدث خطأ أثناء مسح الباركود."); }); };
+
+if (!loggedIn) { return ( <div className="p-4 max-w-md mx-auto space-y-6"> <div> <h2 className="text-xl font-bold mb-2">تسجيل الدخول</h2> <Label>اسم المستخدم</Label> <Input value={user} onChange={e => setUser(e.target.value)} /> <Label>كلمة المرور</Label> <Input type="password" value={password} onChange={e => setPassword(e.target.value)} /> <Button onClick={handleLogin}>دخول</Button> </div>
+
+<div className="pt-6 border-t">
+      <h2 className="text-xl font-bold mb-2">تسجيل مستخدم جديد</h2>
+      <Label>اسم المستخدم</Label>
+      <Input value={newUser.username} onChange={e => setNewUser({ ...newUser, username: e.target.value })} />
+      <Label>كلمة المرور</Label>
+      <Input type="password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} />
+      <Label>الدور</Label>
+      <select className="w-full border p-2" value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })}>
+        <option value="worker">عامل</option>
+        <option value="manager">مدير</option>
+      </select>
+      <Button onClick={handleRegister}>تسجيل</Button>
+    </div>
+  </div>
+);
+
+}
+
+return ( <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4"> {(role === "manager" || role === "worker") && ( <Card> <CardContent className="space-y-4 p-4"> <h2 className="text-xl font-bold">إدخال/إخراج بضاعة</h2> <div className="space-y-2"> <Label>اسم المنتج</Label> <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /> <Label>الكمية</Label> <Input type="number" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} /> <Label>النوع</Label> <select className="w-full border p-2" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}> <option value="in">دخول</option> <option value="out">خروج</option> </select> <Label>صورة المنتج</Label> <input type="file" ref={fileInputRef} onChange={handleFileChange} /> {form.image && <img src={form.image} alt="صورة المنتج" className="w-full h-auto" />} <Label>QR كود</Label> <QRCode value={form.qrCode} size={128} /> <Button onClick={handleSubmit}>تسجيل</Button> </div> </CardContent> </Card> )}
+
+<Card>
+    <CardContent className="p-4">
+      <h2 className="text-xl font-bold mb-2">المخزون الحالي</h2>
+      <ul>
+        {inventory.map(item => (
+          <li key={item.name}>{item.name}: {item.quantity}</li>
+        ))}
+      </ul>
+    </CardContent>
+  </Card>
+
+  <Card>
+    <CardContent className="p-4">
+      <h2 className="text-xl font-bold mb-2">البحث باستخدام الباركود</h2>
+      <Button onClick={handleScanBarcode}>مسح الباركود</Button>
+    </CardContent>
+  </Card>
+
+  {role === "manager" && (
+    <Card className="md:col-span-2">
+      <CardContent className="p-4">
+        <h2 className="text-xl font-bold mb-2">سجل العمليات</h2>
+        <ul className="space-y-1">
+          {log.map((entry, index) => (
+            <li key={index}>{entry.date} - {entry.person} - {entry.name} - {entry.type === "in" ? "دخول" : "خروج"} - {entry.quantity}</li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  )}
+</div>
+
+); }
+
